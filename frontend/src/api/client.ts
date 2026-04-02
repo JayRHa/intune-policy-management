@@ -69,6 +69,8 @@ export interface ConflictEntry {
     policy_name: string;
     policy_type: string;
     platform: string | null;
+    description: string;
+    assignments: string[];
     value: unknown;
   }[];
   has_different_values: boolean;

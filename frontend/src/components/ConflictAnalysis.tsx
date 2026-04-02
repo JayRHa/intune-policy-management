@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { POLICY_TYPE_LABELS } from '../types';
 import type { ConflictEntry } from '../api/client';
 
@@ -51,6 +51,56 @@ export default function ConflictAnalysis({ conflicts, loading, onAnalyze }: Prop
     if (typeof value === 'object') return JSON.stringify(value, null, 2);
     return String(value);
   };
+
+  const exportToJson = useCallback(() => {
+    const data = filtered.map((c) => ({
+      setting_key: c.setting_key,
+      setting_label: c.setting_label,
+      type: c.has_different_values ? 'conflict' : 'duplicate',
+      policies: c.policies.map((p) => ({
+        name: p.policy_name,
+        type: p.policy_type,
+        platform: p.platform,
+        description: p.description,
+        assignments: p.assignments,
+        value: p.value,
+      })),
+    }));
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `intune-conflicts-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [filtered]);
+
+  const exportToCsv = useCallback(() => {
+    const rows: string[][] = [['Setting Key', 'Setting Label', 'Type', 'Policy Name', 'Policy Type', 'Platform', 'Description', 'Assignments', 'Value']];
+    for (const c of filtered) {
+      for (const p of c.policies) {
+        rows.push([
+          c.setting_key,
+          c.setting_label,
+          c.has_different_values ? 'Conflict' : 'Duplicate',
+          p.policy_name,
+          POLICY_TYPE_LABELS[p.policy_type] || p.policy_type,
+          p.platform || '',
+          p.description || '',
+          (p.assignments || []).join('; '),
+          typeof p.value === 'object' ? JSON.stringify(p.value) : String(p.value ?? ''),
+        ]);
+      }
+    }
+    const csv = rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `intune-conflicts-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [filtered]);
 
   // Empty / initial state
   if (conflicts.length === 0 && !loading) {
@@ -189,9 +239,7 @@ export default function ConflictAnalysis({ conflicts, loading, onAnalyze }: Prop
       </div>
 
       {/* Main panel */}
-      <div className="glass-panel overflow-hidden relative group/list">
-        <div className="absolute inset-0 bg-gradient-to-br from-white/40 to-white/10 opacity-0 group-hover/list:opacity-100 transition-opacity duration-700 pointer-events-none"></div>
-
+      <div className="glass-panel overflow-hidden relative">
         {/* Toolbar */}
         <div className="p-5 border-b border-white/40 bg-white/30 backdrop-blur-md relative z-10">
           <div className="flex flex-col sm:flex-row gap-3">
@@ -246,10 +294,42 @@ export default function ConflictAnalysis({ conflicts, loading, onAnalyze }: Prop
                 </svg>
                 Collapse
               </button>
+
+              <div className="w-px bg-slate-200/60 mx-1"></div>
+
+              {/* Export dropdown */}
+              <div className="relative group/export">
+                <button className="px-3 py-2 text-xs btn-glass text-slate-600 flex items-center gap-1.5">
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  Export
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                <div className="absolute right-0 top-full mt-1 w-40 py-1 bg-white/95 backdrop-blur-xl rounded-xl border border-white/60 shadow-xl opacity-0 invisible group-hover/export:opacity-100 group-hover/export:visible transition-all duration-200 z-50">
+                  <button
+                    onClick={exportToJson}
+                    className="w-full text-left px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                  >
+                    <span className="w-5 h-5 rounded bg-amber-50 flex items-center justify-center text-[9px] font-bold text-amber-600">{ }</span>
+                    Export as JSON
+                  </button>
+                  <button
+                    onClick={exportToCsv}
+                    className="w-full text-left px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                  >
+                    <span className="w-5 h-5 rounded bg-green-50 flex items-center justify-center text-[9px] font-bold text-green-600">csv</span>
+                    Export as CSV
+                  </button>
+                </div>
+              </div>
+
               <button
                 onClick={onAnalyze}
                 disabled={loading}
-                className="px-3.5 py-2 text-xs btn-glass flex items-center gap-1.5 text-slate-600"
+                className="px-3.5 py-2 text-xs btn-primary-glass flex items-center gap-1.5 bg-gradient-to-r from-amber-500/90 to-orange-500/90 border-amber-400/50 shadow-amber-500/20 hover:shadow-amber-500/30"
               >
                 <svg className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -367,41 +447,50 @@ export default function ConflictAnalysis({ conflicts, loading, onAnalyze }: Prop
                   </div>
                 </button>
 
-                {/* Expanded detail panel */}
+                {/* Expanded detail panel — card layout per policy */}
                 {isExpanded && (
                   <div className="border-t border-white/30 bg-gradient-to-b from-white/40 to-white/20 backdrop-blur-sm">
                     <div className="p-5">
-                      <div className="space-y-2.5">
+                      {/* Setting source info */}
+                      <div className="mb-4 px-3 py-2.5 rounded-lg bg-slate-50/60 border border-slate-200/40">
+                        <div className="flex items-center gap-2 mb-1">
+                          <svg className="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
+                          </svg>
+                          <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Setting Key</span>
+                        </div>
+                        <code className="text-xs font-mono text-slate-600 break-all">{conflict.setting_key}</code>
+                      </div>
+
+                      {/* Policy cards */}
+                      <div className="space-y-3">
                         {conflict.policies.map((p, pidx) => {
                           const valueStr = formatValue(p.value);
-                          const isLong = valueStr.length > 100;
-
-                          // For conflicts, check if this value differs from the first
                           const firstValueStr = formatValue(conflict.policies[0].value);
                           const isDifferent = isConflict && pidx > 0 && valueStr !== firstValueStr;
 
                           return (
                             <div
                               key={`${p.policy_id}-${pidx}`}
-                              className={`rounded-xl border transition-all duration-200 overflow-hidden ${
+                              className={`rounded-xl border overflow-hidden transition-all ${
                                 isDifferent
-                                  ? 'border-red-200/60 bg-red-50/30'
-                                  : 'border-white/50 bg-white/40'
+                                  ? 'border-red-200/60 bg-red-50/20'
+                                  : 'border-white/50 bg-white/30'
                               }`}
                             >
-                              <div className="flex items-center gap-3 px-4 py-3">
-                                {/* Policy avatar */}
-                                <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                              {/* Card header */}
+                              <div className={`flex items-center gap-3 px-4 py-3 border-b ${
+                                isDifferent ? 'border-red-100/40 bg-red-50/30' : 'border-white/40 bg-white/20'
+                              }`}>
+                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
                                   isDifferent
                                     ? 'bg-red-100/80 border border-red-200/50'
                                     : 'bg-gradient-to-br from-purple-50 to-blue-50 border border-purple-100/50'
                                 }`}>
-                                  <span className={`text-xs font-bold ${isDifferent ? 'text-red-600' : 'text-purple-600'}`}>
+                                  <span className={`text-[10px] font-bold ${isDifferent ? 'text-red-600' : 'text-purple-600'}`}>
                                     {p.policy_name.charAt(0).toUpperCase()}
                                   </span>
                                 </div>
-
-                                {/* Policy info */}
                                 <div className="flex-1 min-w-0">
                                   <p className="text-sm font-semibold text-slate-800 truncate">{p.policy_name}</p>
                                   <div className="flex items-center gap-2 mt-0.5">
@@ -413,37 +502,75 @@ export default function ConflictAnalysis({ conflicts, loading, onAnalyze }: Prop
                                         {p.platform}
                                       </span>
                                     )}
+                                    {isDifferent && (
+                                      <span className="soft-pill bg-red-50/80 text-red-600 border-red-200/40 !text-[10px] !px-2 !py-0.5">
+                                        Different value
+                                      </span>
+                                    )}
                                   </div>
+                                </div>
+                              </div>
+
+                              {/* Card body — grid layout */}
+                              <div className="px-4 py-3 grid grid-cols-1 md:grid-cols-3 gap-3">
+                                {/* Description */}
+                                <div>
+                                  <div className="flex items-center gap-1.5 mb-1.5">
+                                    <svg className="w-3 h-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h7" />
+                                    </svg>
+                                    <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Description</span>
+                                  </div>
+                                  <p className="text-[11px] text-slate-600 leading-relaxed">
+                                    {p.description || <span className="italic text-slate-400">No description</span>}
+                                  </p>
+                                </div>
+
+                                {/* Assignments */}
+                                <div>
+                                  <div className="flex items-center gap-1.5 mb-1.5">
+                                    <svg className="w-3 h-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                                    </svg>
+                                    <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Assignments</span>
+                                  </div>
+                                  {p.assignments && p.assignments.length > 0 ? (
+                                    <div className="flex flex-wrap gap-1">
+                                      {p.assignments.map((a, ai) => (
+                                        <span
+                                          key={ai}
+                                          className={`inline-flex items-center px-2 py-0.5 text-[10px] font-medium rounded-md border ${
+                                            a.startsWith('Exclude')
+                                              ? 'bg-red-50/60 text-red-600 border-red-200/40'
+                                              : a === 'All Devices' || a === 'All Users'
+                                              ? 'bg-blue-50/60 text-blue-600 border-blue-200/40'
+                                              : 'bg-slate-50/60 text-slate-600 border-slate-200/40'
+                                          }`}
+                                        >
+                                          {a}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <p className="text-[11px] italic text-slate-400">No assignments</p>
+                                  )}
                                 </div>
 
                                 {/* Value */}
-                                <div className="flex-shrink-0 max-w-[40%] text-right">
-                                  {isLong ? (
-                                    <details className="text-left">
-                                      <summary className={`cursor-pointer text-xs font-medium px-3 py-1.5 rounded-lg transition-colors ${
-                                        isDifferent
-                                          ? 'bg-red-100/60 text-red-600 hover:bg-red-100'
-                                          : 'bg-slate-100/60 text-blue-600 hover:bg-slate-100'
-                                      }`}>
-                                        View value
-                                      </summary>
-                                      <pre className={`mt-2 text-[11px] font-mono p-3 rounded-lg overflow-auto max-h-40 whitespace-pre-wrap ${
-                                        isDifferent
-                                          ? 'bg-red-50/80 border border-red-200/40 text-red-800'
-                                          : 'bg-slate-50/80 border border-slate-200/40 text-slate-700'
-                                      }`}>
-                                        {valueStr}
-                                      </pre>
-                                    </details>
-                                  ) : (
-                                    <code className={`text-[11px] font-mono px-2.5 py-1 rounded-lg inline-block max-w-full truncate ${
-                                      isDifferent
-                                        ? 'bg-red-100/60 text-red-700 ring-1 ring-red-200/50'
-                                        : 'bg-slate-100/80 text-slate-700'
-                                    }`}>
-                                      {valueStr}
-                                    </code>
-                                  )}
+                                <div>
+                                  <div className="flex items-center gap-1.5 mb-1.5">
+                                    <svg className="w-3 h-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                                    </svg>
+                                    <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Value (JSON)</span>
+                                  </div>
+                                  <pre className={`text-[11px] font-mono p-2.5 rounded-lg overflow-auto max-h-48 whitespace-pre-wrap break-all ${
+                                    isDifferent
+                                      ? 'bg-red-50/80 border border-red-200/40 text-red-800'
+                                      : 'bg-slate-50/80 border border-slate-200/40 text-slate-700'
+                                  }`}>
+                                    {valueStr}
+                                  </pre>
                                 </div>
                               </div>
                             </div>

@@ -59,11 +59,23 @@ async def _get_policy_settings(policy_type: str, policy_id: str, endpoint: str) 
                 continue
             if value is None or value == "" or value == [] or value == {}:
                 continue
-            settings.append({
-                "setting_key": f"{odata_type}:{key}",
-                "setting_label": key,
-                "value": value,
-            })
+            # For OMA-URI custom profiles, expand individual OMA settings
+            if key == "omaSettings" and isinstance(value, list):
+                for oma in value:
+                    oma_uri = oma.get("omaUri", "")
+                    oma_name = oma.get("displayName", oma_uri)
+                    oma_value = oma.get("value", oma.get("secretReferenceValueId", ""))
+                    settings.append({
+                        "setting_key": f"oma-uri:{oma_uri}",
+                        "setting_label": oma_name,
+                        "value": oma_value,
+                    })
+            else:
+                settings.append({
+                    "setting_key": f"{odata_type}:{key}",
+                    "setting_label": key,
+                    "value": value,
+                })
 
     elif policy_type == "endpointSecurity":
         try:
@@ -117,33 +129,49 @@ async def _get_policy_settings(policy_type: str, policy_id: str, endpoint: str) 
     return settings
 
 
-async def analyze_conflicts() -> list[dict]:
-    """Analyze all policies and find settings that appear in multiple policies.
+def _format_assignment_target(target: dict) -> str:
+    """Convert a Graph API assignment target to a readable string."""
+    odata_type = target.get("@odata.type", "")
+    if "allDevices" in odata_type:
+        return "All Devices"
+    if "allLicensedUsers" in odata_type:
+        return "All Users"
+    if "exclusionGroup" in odata_type:
+        group_id = target.get("groupId", "")
+        return f"Exclude: {group_id}"
+    if "group" in odata_type.lower():
+        group_id = target.get("groupId", "")
+        return f"Group: {group_id}"
+    return odata_type.split(".")[-1] if odata_type else "Unknown"
 
-    Returns a list of conflict groups:
-    [
-        {
-            "setting_key": "...",
-            "setting_label": "...",
-            "policies": [
-                {
-                    "policy_id": "...",
-                    "policy_name": "...",
-                    "policy_type": "...",
-                    "platform": "...",
-                    "value": ...
-                },
-                ...
-            ],
-            "has_different_values": true/false
-        }
-    ]
-    """
+
+async def _get_assignments(policy_type: str, policy_id: str, endpoint: str) -> list[str]:
+    """Fetch assignment targets for a policy."""
+    # Conditional Access policies have assignments embedded differently
+    if policy_type == "conditionalAccess":
+        return []
+    # App Protection policies use a different assignment structure
+    if policy_type == "appProtection":
+        return []
+    try:
+        data = await graph_client.get(f"{endpoint}/{policy_id}/assignments")
+        assignments = data.get("value", [])
+        targets = []
+        for a in assignments:
+            target = a.get("target", {})
+            targets.append(_format_assignment_target(target))
+        return targets
+    except Exception:
+        return []
+
+
+async def analyze_conflicts() -> list[dict]:
+    """Analyze all policies and find settings that appear in multiple policies."""
     # Step 1: Fetch all policies (basic info)
     from policy_fetcher import fetch_all_policies
     all_policies = await fetch_all_policies()
 
-    # Step 2: Fetch settings for each policy concurrently (with semaphore to avoid rate limits)
+    # Step 2: Fetch settings and assignments for each policy concurrently
     sem = asyncio.Semaphore(5)
 
     async def fetch_with_sem(policy):
@@ -152,7 +180,10 @@ async def analyze_conflicts() -> list[dict]:
             policy_settings = await _get_policy_settings(
                 policy.policy_type, policy.id, endpoint
             )
-            return policy, policy_settings
+            assignments = await _get_assignments(
+                policy.policy_type, policy.id, endpoint
+            )
+            return policy, policy_settings, assignments
 
     tasks = [fetch_with_sem(p) for p in all_policies]
     results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -163,7 +194,7 @@ async def analyze_conflicts() -> list[dict]:
     for result in results:
         if isinstance(result, Exception):
             continue
-        policy, policy_settings = result
+        policy, policy_settings, assignments = result
         for s in policy_settings:
             key = s["setting_key"]
             if key not in setting_map:
@@ -173,6 +204,8 @@ async def analyze_conflicts() -> list[dict]:
                 "policy_name": policy.display_name,
                 "policy_type": policy.policy_type,
                 "platform": policy.platform,
+                "description": policy.description or "",
+                "assignments": assignments,
                 "value": s["value"],
                 "setting_label": s["setting_label"],
             })
@@ -196,6 +229,8 @@ async def analyze_conflicts() -> list[dict]:
                     "policy_name": e["policy_name"],
                     "policy_type": e["policy_type"],
                     "platform": e["platform"],
+                    "description": e["description"],
+                    "assignments": e["assignments"],
                     "value": e["value"],
                 }
                 for e in entries
