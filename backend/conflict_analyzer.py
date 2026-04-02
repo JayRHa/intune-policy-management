@@ -145,12 +145,27 @@ def _format_assignment_target(target: dict) -> str:
     return odata_type.split(".")[-1] if odata_type else "Unknown"
 
 
+_group_name_cache: dict[str, str] = {}
+
+
+async def _resolve_group_name(group_id: str) -> str:
+    """Resolve a group ID to its display name via Graph API."""
+    if group_id in _group_name_cache:
+        return _group_name_cache[group_id]
+    try:
+        data = await graph_client.get(f"/groups/{group_id}?$select=displayName")
+        name = data.get("displayName", group_id)
+        _group_name_cache[group_id] = name
+        return name
+    except Exception:
+        _group_name_cache[group_id] = group_id
+        return group_id
+
+
 async def _get_assignments(policy_type: str, policy_id: str, endpoint: str) -> list[str]:
     """Fetch assignment targets for a policy."""
-    # Conditional Access policies have assignments embedded differently
     if policy_type == "conditionalAccess":
         return []
-    # App Protection policies use a different assignment structure
     if policy_type == "appProtection":
         return []
     try:
@@ -159,13 +174,22 @@ async def _get_assignments(policy_type: str, policy_id: str, endpoint: str) -> l
         targets = []
         for a in assignments:
             target = a.get("target", {})
-            targets.append(_format_assignment_target(target))
+            label = _format_assignment_target(target)
+            # Resolve group names
+            group_id = target.get("groupId", "")
+            if group_id:
+                name = await _resolve_group_name(group_id)
+                if label.startswith("Exclude:"):
+                    label = f"Exclude: {name}"
+                else:
+                    label = f"Group: {name}"
+            targets.append(label)
         return targets
     except Exception:
         return []
 
 
-async def analyze_conflicts() -> list[dict]:
+async def analyze_conflicts(include_unique: bool = False) -> list[dict]:
     """Analyze all policies and find settings that appear in multiple policies."""
     # Step 1: Fetch all policies (basic info)
     from policy_fetcher import fetch_all_policies
@@ -210,15 +234,16 @@ async def analyze_conflicts() -> list[dict]:
                 "setting_label": s["setting_label"],
             })
 
-    # Step 4: Filter to only settings that appear in 2+ policies
+    # Step 4: Build results
+    min_count = 1 if include_unique else 2
     conflicts = []
     for setting_key, entries in setting_map.items():
-        if len(entries) < 2:
+        if len(entries) < min_count:
             continue
 
         # Check if values differ
         values_str = [str(e["value"]) for e in entries]
-        has_different = len(set(values_str)) > 1
+        has_different = len(set(values_str)) > 1 if len(entries) > 1 else False
 
         conflicts.append({
             "setting_key": setting_key,
@@ -236,9 +261,14 @@ async def analyze_conflicts() -> list[dict]:
                 for e in entries
             ],
             "has_different_values": has_different,
+            "is_unique": len(entries) == 1,
         })
 
-    # Sort: conflicts with different values first, then by number of policies
-    conflicts.sort(key=lambda c: (-int(c["has_different_values"]), -len(c["policies"])))
+    # Sort: conflicts first, then duplicates, then unique
+    conflicts.sort(key=lambda c: (
+        c["is_unique"],
+        -int(c["has_different_values"]),
+        -len(c["policies"]),
+    ))
 
     return conflicts

@@ -163,10 +163,10 @@ async def update_settings(llm_settings: LLMSettings):
 
 
 @app.get("/api/analyze-conflicts")
-async def analyze_conflicts_endpoint():
+async def analyze_conflicts_endpoint(include_unique: bool = False):
     """Analyze all policies and find overlapping/duplicate settings."""
     try:
-        conflicts = await analyze_conflicts()
+        conflicts = await analyze_conflicts(include_unique=include_unique)
         return {"conflicts": conflicts, "total": len(conflicts)}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

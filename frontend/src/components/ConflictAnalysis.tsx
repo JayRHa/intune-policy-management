@@ -5,32 +5,72 @@ import type { ConflictEntry } from '../api/client';
 interface Props {
   conflicts: ConflictEntry[];
   loading: boolean;
-  onAnalyze: () => void;
+  onAnalyze: (includeUnique?: boolean) => void;
 }
 
 export default function ConflictAnalysis({ conflicts, loading, onAnalyze }: Props) {
   const [search, setSearch] = useState('');
-  const [filterMode, setFilterMode] = useState<'all' | 'conflicts' | 'duplicates'>('all');
+  const [filterMode, setFilterMode] = useState<'all' | 'conflicts' | 'duplicates' | 'unique'>('all');
+  const [assignmentFilter, setAssignmentFilter] = useState('');
+  const [platformFilter, setPlatformFilter] = useState('');
+  const [showUnique, setShowUnique] = useState(false);
   const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set());
 
-  const filtered = useMemo(() => {
-    return conflicts.filter((c) => {
-      const matchesSearch =
-        c.setting_key.toLowerCase().includes(search.toLowerCase()) ||
-        c.setting_label.toLowerCase().includes(search.toLowerCase()) ||
-        c.policies.some((p) => p.policy_name.toLowerCase().includes(search.toLowerCase()));
+  // Collect all unique assignment targets for the filter dropdown
+  const allAssignments = useMemo(() => {
+    const set = new Set<string>();
+    for (const c of conflicts) {
+      for (const p of c.policies) {
+        for (const a of (p.assignments || [])) {
+          set.add(a);
+        }
+      }
+    }
+    return Array.from(set).sort();
+  }, [conflicts]);
 
-      if (filterMode === 'conflicts') return matchesSearch && c.has_different_values;
-      if (filterMode === 'duplicates') return matchesSearch && !c.has_different_values;
-      return matchesSearch;
+  // Collect all unique platforms for the filter dropdown
+  const allPlatforms = useMemo(() => {
+    const set = new Set<string>();
+    for (const c of conflicts) {
+      for (const p of c.policies) {
+        if (p.platform) set.add(p.platform);
+      }
+    }
+    return Array.from(set).sort();
+  }, [conflicts]);
+
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase();
+    return conflicts.filter((c) => {
+      const matchesSearch = !q ||
+        c.setting_key.toLowerCase().includes(q) ||
+        c.setting_label.toLowerCase().includes(q) ||
+        c.policies.some((p) =>
+          p.policy_name.toLowerCase().includes(q) ||
+          (p.description || '').toLowerCase().includes(q) ||
+          (p.assignments || []).some((a) => a.toLowerCase().includes(q))
+        );
+
+      const matchesAssignment = !assignmentFilter ||
+        c.policies.some((p) => (p.assignments || []).includes(assignmentFilter));
+
+      const matchesPlatform = !platformFilter ||
+        c.policies.some((p) => p.platform === platformFilter);
+
+      if (filterMode === 'conflicts') return matchesSearch && matchesAssignment && matchesPlatform && c.has_different_values;
+      if (filterMode === 'duplicates') return matchesSearch && matchesAssignment && matchesPlatform && !c.has_different_values && !c.is_unique;
+      if (filterMode === 'unique') return matchesSearch && matchesAssignment && matchesPlatform && c.is_unique;
+      return matchesSearch && matchesAssignment && matchesPlatform;
     });
-  }, [conflicts, search, filterMode]);
+  }, [conflicts, search, filterMode, assignmentFilter, platformFilter]);
 
   const stats = useMemo(() => {
     const withConflicts = conflicts.filter((c) => c.has_different_values).length;
-    const withDuplicates = conflicts.filter((c) => !c.has_different_values).length;
+    const withDuplicates = conflicts.filter((c) => !c.has_different_values && !c.is_unique).length;
+    const withUnique = conflicts.filter((c) => c.is_unique).length;
     const affectedPolicies = new Set(conflicts.flatMap((c) => c.policies.map((p) => p.policy_id))).size;
-    return { total: conflicts.length, withConflicts, withDuplicates, affectedPolicies };
+    return { total: conflicts.length, withConflicts, withDuplicates, withUnique, affectedPolicies };
   }, [conflicts]);
 
   const toggleExpand = (key: string) => {
@@ -129,7 +169,7 @@ export default function ConflictAnalysis({ conflicts, loading, onAnalyze }: Prop
               Scan your entire Intune tenant to discover settings configured across multiple policies. Identify conflicts and redundant configurations.
             </p>
             <button
-              onClick={onAnalyze}
+              onClick={() => onAnalyze(showUnique)}
               disabled={loading}
               className="btn-primary-glass px-8 py-3 text-sm flex items-center justify-center gap-2.5 mx-auto group bg-gradient-to-r from-amber-500/90 to-orange-500/90 border-amber-400/50 shadow-amber-500/20 hover:shadow-amber-500/30"
             >
@@ -172,7 +212,7 @@ export default function ConflictAnalysis({ conflicts, loading, onAnalyze }: Prop
   return (
     <div className="space-y-6">
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className={`grid grid-cols-2 gap-4 ${showUnique ? 'md:grid-cols-5' : 'md:grid-cols-4'}`}>
         <div className="glass-panel p-4 relative overflow-hidden group">
           <div className="absolute inset-0 bg-gradient-to-br from-slate-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
           <div className="relative z-10">
@@ -221,6 +261,24 @@ export default function ConflictAnalysis({ conflicts, loading, onAnalyze }: Prop
           </div>
         </div>
 
+        {showUnique && (
+          <div className="glass-panel p-4 relative overflow-hidden group">
+            <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+            <div className="relative z-10">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-8 h-8 rounded-lg bg-emerald-50/80 flex items-center justify-center">
+                  <svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <span className="text-xs font-medium text-emerald-600 uppercase tracking-wider">Unique</span>
+              </div>
+              <p className="text-2xl font-bold text-emerald-600">{stats.withUnique}</p>
+              <p className="text-xs text-slate-400 mt-0.5">no overlap</p>
+            </div>
+          </div>
+        )}
+
         <div className="glass-panel p-4 relative overflow-hidden group">
           <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
           <div className="relative z-10">
@@ -241,107 +299,159 @@ export default function ConflictAnalysis({ conflicts, loading, onAnalyze }: Prop
       {/* Main panel */}
       <div className="glass-panel overflow-hidden relative">
         {/* Toolbar */}
-        <div className="p-5 border-b border-white/40 bg-white/30 backdrop-blur-md relative z-10">
-          <div className="flex flex-col sm:flex-row gap-3">
+        <div className="p-4 border-b border-white/40 bg-white/30 backdrop-blur-md relative z-10 space-y-3">
+          {/* Row 1: Search + Filter chips + Refresh */}
+          <div className="flex items-center gap-2">
             <div className="flex-1 relative">
               <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
               <input
                 type="text"
-                placeholder="Search settings or policy names..."
+                placeholder="Search settings, policies, assignments..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="glass-input pl-10"
               />
             </div>
 
+            <button
+              onClick={() => onAnalyze(showUnique)}
+              disabled={loading}
+              className="px-3.5 py-2 text-xs btn-primary-glass flex items-center gap-1.5 flex-shrink-0 bg-gradient-to-r from-amber-500/90 to-orange-500/90 border-amber-400/50 shadow-amber-500/20 hover:shadow-amber-500/30"
+            >
+              <svg className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              {loading ? 'Analyzing...' : 'Refresh'}
+            </button>
+          </div>
+
+          {/* Row 2: Filter chips + Dropdowns + Actions */}
+          <div className="flex items-center gap-2 flex-wrap">
             {/* Filter chips */}
-            <div className="flex gap-1.5 items-center">
-              {([
-                { key: 'all', label: 'All', color: 'slate' },
-                { key: 'conflicts', label: 'Conflicts', color: 'red' },
-                { key: 'duplicates', label: 'Duplicates', color: 'amber' },
-              ] as const).map((f) => (
-                <button
-                  key={f.key}
-                  onClick={() => setFilterMode(f.key)}
-                  className={`px-3.5 py-2 text-xs font-semibold rounded-xl border transition-all duration-200 ${
-                    filterMode === f.key
-                      ? f.color === 'red'
-                        ? 'bg-red-50 text-red-700 border-red-200 shadow-sm'
-                        : f.color === 'amber'
-                        ? 'bg-amber-50 text-amber-700 border-amber-200 shadow-sm'
-                        : 'bg-white/80 text-slate-700 border-slate-200 shadow-sm'
-                      : 'bg-white/30 text-slate-500 border-white/40 hover:bg-white/60 hover:text-slate-700'
-                  }`}
-                >
-                  {f.label}
-                </button>
-              ))}
-            </div>
-
-            <div className="flex gap-2">
-              <button onClick={expandAll} className="px-3 py-2 text-xs btn-glass text-slate-600 flex items-center gap-1.5">
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
-                </svg>
-                Expand
-              </button>
-              <button onClick={collapseAll} className="px-3 py-2 text-xs btn-glass text-slate-600 flex items-center gap-1.5">
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 9V4.5M9 9H4.5M9 9L3.5 3.5M9 15v4.5M9 15H4.5M9 15l-5.5 5.5M15 9h4.5M15 9V4.5M15 9l5.5-5.5M15 15h4.5m-4.5 0v4.5m0-4.5l5.5 5.5" />
-                </svg>
-                Collapse
-              </button>
-
-              <div className="w-px bg-slate-200/60 mx-1"></div>
-
-              {/* Export dropdown */}
-              <div className="relative group/export">
-                <button className="px-3 py-2 text-xs btn-glass text-slate-600 flex items-center gap-1.5">
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  Export
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-                <div className="absolute right-0 top-full mt-1 w-40 py-1 bg-white/95 backdrop-blur-xl rounded-xl border border-white/60 shadow-xl opacity-0 invisible group-hover/export:opacity-100 group-hover/export:visible transition-all duration-200 z-50">
-                  <button
-                    onClick={exportToJson}
-                    className="w-full text-left px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-2"
-                  >
-                    <span className="w-5 h-5 rounded bg-amber-50 flex items-center justify-center text-[9px] font-bold text-amber-600">{ }</span>
-                    Export as JSON
-                  </button>
-                  <button
-                    onClick={exportToCsv}
-                    className="w-full text-left px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-2"
-                  >
-                    <span className="w-5 h-5 rounded bg-green-50 flex items-center justify-center text-[9px] font-bold text-green-600">csv</span>
-                    Export as CSV
-                  </button>
-                </div>
-              </div>
-
+            {([
+              { key: 'all', label: 'All', color: 'slate' },
+              { key: 'conflicts', label: 'Conflicts', color: 'red' },
+              { key: 'duplicates', label: 'Duplicates', color: 'amber' },
+              ...(showUnique ? [{ key: 'unique' as const, label: 'Unique', color: 'green' }] : []),
+            ] as const).map((f) => (
               <button
-                onClick={onAnalyze}
-                disabled={loading}
-                className="px-3.5 py-2 text-xs btn-primary-glass flex items-center gap-1.5 bg-gradient-to-r from-amber-500/90 to-orange-500/90 border-amber-400/50 shadow-amber-500/20 hover:shadow-amber-500/30"
+                key={f.key}
+                onClick={() => setFilterMode(f.key)}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all duration-200 ${
+                  filterMode === f.key
+                    ? f.color === 'red'
+                      ? 'bg-red-50 text-red-700 border-red-200 shadow-sm'
+                      : f.color === 'amber'
+                      ? 'bg-amber-50 text-amber-700 border-amber-200 shadow-sm'
+                      : f.color === 'green'
+                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200 shadow-sm'
+                      : 'bg-white/80 text-slate-700 border-slate-200 shadow-sm'
+                    : 'bg-white/30 text-slate-500 border-white/40 hover:bg-white/60 hover:text-slate-700'
+                }`}
               >
-                <svg className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                {loading ? 'Analyzing...' : 'Refresh'}
+                {f.label}
               </button>
+            ))}
+
+            <div className="w-px h-5 bg-slate-200/60"></div>
+
+            {/* Platform filter */}
+            {allPlatforms.length > 0 && (
+              <select
+                value={platformFilter}
+                onChange={(e) => setPlatformFilter(e.target.value)}
+                className="glass-select"
+              >
+                <option value="">All Platforms</option>
+                {allPlatforms.map((p) => (
+                  <option key={p} value={p}>{p}</option>
+                ))}
+              </select>
+            )}
+
+            {/* Assignment filter */}
+            {allAssignments.length > 0 && (
+              <select
+                value={assignmentFilter}
+                onChange={(e) => setAssignmentFilter(e.target.value)}
+                className="glass-select"
+              >
+                <option value="">All Assignments</option>
+                {allAssignments.map((a) => (
+                  <option key={a} value={a}>{a}</option>
+                ))}
+              </select>
+            )}
+
+            <div className="flex-1"></div>
+
+            {/* Actions */}
+            <button onClick={expandAll} className="px-2.5 py-1.5 text-xs btn-glass text-slate-600 flex items-center gap-1">
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+              </svg>
+              Expand
+            </button>
+            <button onClick={collapseAll} className="px-2.5 py-1.5 text-xs btn-glass text-slate-600 flex items-center gap-1">
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 9V4.5M9 9H4.5M9 9L3.5 3.5M9 15v4.5M9 15H4.5M9 15l-5.5 5.5M15 9h4.5M15 9V4.5M15 9l5.5-5.5M15 15h4.5m-4.5 0v4.5m0-4.5l5.5 5.5" />
+              </svg>
+              Collapse
+            </button>
+
+            {/* Export dropdown */}
+            <div className="relative group/export">
+              <button className="px-2.5 py-1.5 text-xs btn-glass text-slate-600 flex items-center gap-1">
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Export
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              <div className="absolute right-0 top-full mt-1 w-40 py-1 bg-white/95 backdrop-blur-xl rounded-xl border border-white/60 shadow-xl opacity-0 invisible group-hover/export:opacity-100 group-hover/export:visible transition-all duration-200 z-50">
+                <button
+                  onClick={exportToJson}
+                  className="w-full text-left px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                >
+                  <span className="w-5 h-5 rounded bg-amber-50 flex items-center justify-center text-[9px] font-bold text-amber-600">{ }</span>
+                  Export as JSON
+                </button>
+                <button
+                  onClick={exportToCsv}
+                  className="w-full text-left px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                >
+                  <span className="w-5 h-5 rounded bg-green-50 flex items-center justify-center text-[9px] font-bold text-green-600">csv</span>
+                  Export as CSV
+                </button>
+              </div>
             </div>
           </div>
 
-          {/* Result count */}
-          <div className="mt-3 flex items-center gap-2 text-xs text-slate-400 px-0.5">
+          {/* Row 3: Result count + show unique toggle */}
+          <div className="flex items-center justify-between text-xs text-slate-400 px-0.5">
             <span>{filtered.length} of {conflicts.length} settings shown</span>
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <span className="text-xs text-slate-500">Show unique settings</span>
+              <button
+                onClick={() => {
+                  const next = !showUnique;
+                  setShowUnique(next);
+                  if (!next && filterMode === 'unique') setFilterMode('all');
+                  onAnalyze(next);
+                }}
+                className={`relative w-9 h-5 rounded-full transition-colors duration-200 ${
+                  showUnique ? 'bg-emerald-500' : 'bg-slate-300'
+                }`}
+              >
+                <div className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200 ${
+                  showUnique ? 'translate-x-4' : ''
+                }`} />
+              </button>
+            </label>
           </div>
         </div>
 
@@ -350,6 +460,7 @@ export default function ConflictAnalysis({ conflicts, loading, onAnalyze }: Prop
           {filtered.map((conflict, idx) => {
             const isExpanded = expandedKeys.has(conflict.setting_key);
             const isConflict = conflict.has_different_values;
+            const isUnique = conflict.is_unique;
             return (
               <div
                 key={conflict.setting_key}
@@ -364,7 +475,9 @@ export default function ConflictAnalysis({ conflicts, loading, onAnalyze }: Prop
                 >
                   {/* Indicator bar */}
                   <div className={`absolute left-0 top-0 bottom-0 w-1 rounded-r-full transition-all ${
-                    isConflict
+                    isUnique
+                      ? 'bg-gradient-to-b from-emerald-300 to-emerald-400'
+                      : isConflict
                       ? 'bg-gradient-to-b from-red-400 to-red-500'
                       : 'bg-gradient-to-b from-amber-300 to-amber-400'
                   }`} />
@@ -385,11 +498,17 @@ export default function ConflictAnalysis({ conflicts, loading, onAnalyze }: Prop
 
                   {/* Status icon */}
                   <div className={`w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                    isConflict
+                    isUnique
+                      ? 'bg-emerald-50/80 border border-emerald-200/50'
+                      : isConflict
                       ? 'bg-red-50/80 border border-red-200/50'
                       : 'bg-amber-50/80 border border-amber-200/50'
                   }`}>
-                    {isConflict ? (
+                    {isUnique ? (
+                      <svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    ) : isConflict ? (
                       <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                       </svg>
@@ -407,11 +526,13 @@ export default function ConflictAnalysis({ conflicts, loading, onAnalyze }: Prop
                         {conflict.setting_label}
                       </span>
                       <span className={`inline-flex items-center px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-md ${
-                        isConflict
+                        isUnique
+                          ? 'bg-emerald-100/80 text-emerald-600 ring-1 ring-emerald-200/50'
+                          : isConflict
                           ? 'bg-red-100/80 text-red-600 ring-1 ring-red-200/50'
                           : 'bg-amber-100/80 text-amber-600 ring-1 ring-amber-200/50'
                       }`}>
-                        {isConflict ? 'Conflict' : 'Duplicate'}
+                        {isUnique ? 'Unique' : isConflict ? 'Conflict' : 'Duplicate'}
                       </span>
                     </div>
                     <p className="text-[11px] text-slate-400 truncate mt-0.5 font-mono tracking-tight max-w-lg">

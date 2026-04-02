@@ -74,10 +74,11 @@ export interface ConflictEntry {
     value: unknown;
   }[];
   has_different_values: boolean;
+  is_unique?: boolean;
 }
 
-export async function analyzeConflicts(): Promise<{ conflicts: ConflictEntry[]; total: number }> {
-  return fetchJson('/analyze-conflicts');
+export async function analyzeConflicts(includeUnique = false): Promise<{ conflicts: ConflictEntry[]; total: number }> {
+  return fetchJson(`/analyze-conflicts?include_unique=${includeUnique}`);
 }
 
 export async function updateDescriptionsInIntune(

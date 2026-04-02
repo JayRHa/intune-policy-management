@@ -135,11 +135,11 @@ export default function App() {
     setView('results');
   };
 
-  const handleAnalyzeConflicts = async () => {
+  const handleAnalyzeConflicts = async (includeUnique = false) => {
     setConflictsLoading(true);
     setError(null);
     try {
-      const data = await analyzeConflicts();
+      const data = await analyzeConflicts(includeUnique);
       setConflicts(data.conflicts);
     } catch (e: any) {
       setError(e.message);
