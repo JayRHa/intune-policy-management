@@ -14,6 +14,12 @@ Build. Automate. Share.
 
 ![Login Screen](docs/screenshots/screenshot_08_updated_policies.png)
 
+<p>
+  <a href="https://jannikreinhard.com/">Blog</a> ·
+  <a href="https://www.linkedin.com/in/jannik-r/">LinkedIn</a> ·
+  <a href="https://x.com/jannik_reinhard">X</a>
+</p>
+
 ---
 
 `AI-assisted Operations` | `TypeScript` | `Public` | `Maintained`
