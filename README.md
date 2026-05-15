@@ -12,7 +12,7 @@ Build. Automate. Share.
 [![GitHub issues](https://img.shields.io/github/issues/JayRHa/IntunePolicyManagement?style=for-the-badge&logo=github&color=d73a4a)](https://github.com/JayRHa/IntunePolicyManagement/issues)
 [![Contributors](https://img.shields.io/github/contributors/JayRHa/IntunePolicyManagement?style=for-the-badge&logo=github&color=28a745)](https://github.com/JayRHa/IntunePolicyManagement/graphs/contributors)
 
-![Login Screen](docs/screenshots/screenshot_08_updated_policies.png)
+![Login Screen](assets/screenshot_08_updated_policies.png)
 
 <p>
   <a href="https://jannikreinhard.com/">Blog</a> ·
@@ -336,7 +336,7 @@ The tenant is automatically detected from `az account show`.
 
 Open http://localhost:5173 in your browser. You will see the login screen.
 
-![Login Screen](docs/screenshots/screenshot_01_login.png)
+![Login Screen](assets/screenshot_01_login.png)
 
 Click **"Sign in with Microsoft"**. A browser window opens for interactive authentication. Select your account and accept the permissions.
 
@@ -344,11 +344,11 @@ Click **"Sign in with Microsoft"**. A browser window opens for interactive authe
 
 After successful login, you will see the main view. Click **"Load Policies"** in the top right corner.
 
-![Main View - Empty](docs/screenshots/screenshot_02_main_empty.png)
+![Main View - Empty](assets/screenshot_02_main_empty.png)
 
 Policies are loaded from all 12 policy types in parallel. A spinner indicates the loading process.
 
-![Policy List](docs/screenshots/screenshot_03_policy_list.png)
+![Policy List](assets/screenshot_03_policy_list.png)
 
 ### Step 4: Select Policies
 
@@ -357,13 +357,13 @@ Policies are loaded from all 12 policy types in parallel. A spinner indicates th
 - **Search:** Use the search field to filter by policy name or description
 - **Type filter:** Filter by policy type via the dropdown (e.g. only "Settings Catalog")
 
-![Policies Selected](docs/screenshots/screenshot_04_policies_selected.png)
+![Policies Selected](assets/screenshot_04_policies_selected.png)
 
 ### Step 5: Adjust LLM Settings (optional)
 
 Click the **gear icon** in the top right corner to open the settings.
 
-![Settings Panel](docs/screenshots/screenshot_05_settings.png)
+![Settings Panel](assets/screenshot_05_settings.png)
 
 You can configure:
 
@@ -379,7 +379,7 @@ Click **"Save"** to persist the settings. They are stored locally in `backend/ll
 
 Click **"Generate (N)"** in the header. Generation starts and displays a progress bar.
 
-![Generation Progress](docs/screenshots/screenshot_06_generating.png)
+![Generation Progress](assets/screenshot_06_generating.png)
 
 For each selected policy:
 
@@ -391,7 +391,7 @@ For each selected policy:
 
 After generation, you see the results view with a before/after comparison:
 
-![Results - Before/After](docs/screenshots/screenshot_07_results_before_after.png)
+![Results - Before/After](assets/screenshot_07_results_before_after.png)
 
 **Features in the results view:**
 
@@ -409,7 +409,7 @@ After generation, you see the results view with a before/after comparison:
 2. Click **"Sync to Intune (N)"**
 3. Successfully updated policies receive a green **"Updated in Intune"** badge
 
-![Updated Policies](docs/screenshots/screenshot_08_updated_policies.png)
+![Updated Policies](assets/screenshot_08_updated_policies.png)
 
 > **Note:** Not all policy types support write-back (see table above). Policies without write support will show an error message.
 
