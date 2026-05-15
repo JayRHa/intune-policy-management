@@ -1,18 +1,3 @@
-<!-- repo-standard:start -->
-# Intune Policy Management
-
-Generate and manage Microsoft Intune policy descriptions with Azure OpenAI-assisted automation.
-
-| Area | Stack | Visibility |
-| --- | --- | --- |
-| Endpoint Management | TypeScript, Python, Azure OpenAI | Public |
-
-**Repository:** `JayRHa/intune-policy-management`  
-**Topics:** `microsoft-intune`, `policy-management`, `azure-openai`, `automation`, `typescript`, `python`
-<!-- repo-standard:end -->
-
----
-
 # Intune PolicyManagement
 
 A local tool that fetches all Microsoft Intune policies from a tenant, automatically generates meaningful descriptions using Azure OpenAI, and analyzes policy conflicts by detecting overlapping settings across policies.
