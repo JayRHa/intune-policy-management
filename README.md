@@ -20,7 +20,7 @@ Build. Automate. Share.
 
 ## What is this?
 
-This repository provides generate and manage Microsoft Intune policy descriptions with Azure OpenAI-assisted automation.
+Generate and manage Microsoft Intune policy descriptions with Azure OpenAI-assisted automation.
 
 > Browse the documentation below for setup notes, usage details, and project-specific context.
 
@@ -186,7 +186,7 @@ The application uses the Microsoft Graph PowerShell app registration (Client ID:
 
 ```bash
 git clone https://github.com/JayRHa/IntunePolicyManagement.git
-cd Intune-PolicyManagement
+cd IntunePolicyManagement
 ```
 
 ### 2. Set up the backend
@@ -579,7 +579,7 @@ All endpoints are available at `http://localhost:8099/api/`. Interactive documen
 ## Project Structure
 
 ```
-Intune-PolicyManagement/
+IntunePolicyManagement/
 |
 |-- backend/
 |   |-- main.py                 # FastAPI app, CORS, all API endpoints
