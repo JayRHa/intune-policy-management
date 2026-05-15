@@ -1,7 +1,7 @@
 <!-- unified-readme:start -->
 <div align="center">
 
-# Intune PolicyManagement
+# Intune Policy Management
 
 **A local tool that fetches all Microsoft Intune policies from a tenant, automatically generates meaningful descriptions using Azure OpenAI, and analyzes policy conflicts by detecting overlapping settings across policies.**
 
@@ -22,7 +22,7 @@ Build. Automate. Share.
 
 ## What is this?
 
-Intune PolicyManagement explores AI-assisted workflows where prompts, context, and automation logic help with endpoint or operations tasks.
+Intune Policy Management explores AI-assisted workflows where prompts, context, and automation logic help with endpoint or operations tasks.
 
 ## Project Context
 
