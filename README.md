@@ -1,9 +1,9 @@
 <!-- unified-readme:start -->
 <div align="center">
 
-# Intune Policy Management
+# Intune PolicyManagement
 
-**Generate and manage Microsoft Intune policy descriptions with Azure OpenAI-assisted automation.**
+**A local tool that fetches all Microsoft Intune policies from a tenant, automatically generates meaningful descriptions using Azure OpenAI, and analyzes policy conflicts by detecting overlapping settings across policies.**
 
 Build. Automate. Share.
 
@@ -11,6 +11,8 @@ Build. Automate. Share.
 [![GitHub forks](https://img.shields.io/github/forks/JayRHa/IntunePolicyManagement?style=for-the-badge&logo=github&color=4078c0)](https://github.com/JayRHa/IntunePolicyManagement/network/members)
 [![GitHub issues](https://img.shields.io/github/issues/JayRHa/IntunePolicyManagement?style=for-the-badge&logo=github&color=d73a4a)](https://github.com/JayRHa/IntunePolicyManagement/issues)
 [![Contributors](https://img.shields.io/github/contributors/JayRHa/IntunePolicyManagement?style=for-the-badge&logo=github&color=28a745)](https://github.com/JayRHa/IntunePolicyManagement/graphs/contributors)
+
+![Login Screen](docs/screenshots/screenshot_08_updated_policies.png)
 
 ---
 
@@ -20,7 +22,7 @@ Build. Automate. Share.
 
 ## What is this?
 
-Intune Policy Management explores AI-assisted workflows where prompts, context, and automation logic help with endpoint or operations tasks.
+Intune PolicyManagement explores AI-assisted workflows where prompts, context, and automation logic help with endpoint or operations tasks.
 
 ## Project Context
 
@@ -50,23 +52,10 @@ flowchart LR
    git clone https://github.com/JayRHa/IntunePolicyManagement.git
    ```
 
-3. Continue with the project-specific documentation in the next section.
+3. Continue with the setup, usage, or workflow sections below.
 
 ---
 <!-- unified-readme:end -->
-
-<!-- project-documentation:start -->
-## Project Documentation
-
-The sections below contain the repository-specific setup, usage, and reference material for this project.
-
-# Intune PolicyManagement
-
-A local tool that fetches all Microsoft Intune policies from a tenant, automatically generates meaningful descriptions using Azure OpenAI, and analyzes policy conflicts by detecting overlapping settings across policies.
-
-![Login Screen](docs/screenshots/screenshot_08_updated_policies.png)
-
----
 
 ## Table of Contents
 
