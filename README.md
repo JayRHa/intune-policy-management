@@ -1,20 +1,78 @@
 <!-- jr-brand:start -->
-<div align="center">
+<p align="center">
   <a href="https://jannikreinhard.com/">
-    <img src="https://raw.githubusercontent.com/JayRHa/.github/main/assets/readme/brand-header.png" alt="Jannik Reinhard — Driving AI with passion" width="100%">
+    <img src="https://raw.githubusercontent.com/JayRHa/.github/main/assets/readme/brand-header.png" alt="Jannik Reinhard — I help enterprises ship secure AI agents" width="100%">
   </a>
-  <h1>Intune Policy Management</h1>
-  <p><strong>Generate and manage Microsoft Intune policy descriptions with Azure OpenAI-assisted automation.</strong></p>
-  <p>
-  <a href="https://jannikreinhard.com/"><img src="https://img.shields.io/badge/Website-146CDD?style=flat-square&amp;logo=wordpress&amp;logoColor=white" alt="Website"></a>
-  <a href="https://github.com/JayRHa"><img src="https://img.shields.io/badge/GitHub-081427?style=flat-square&amp;logo=github&amp;logoColor=white" alt="GitHub"></a>
-  <a href="https://www.linkedin.com/in/jannik-r/"><img src="https://img.shields.io/badge/LinkedIn-0795FF?style=flat-square&amp;logo=linkedin&amp;logoColor=white" alt="LinkedIn"></a>
-  <a href="https://x.com/jannik_reinhard"><img src="https://img.shields.io/badge/X-081427?style=flat-square&amp;logo=x&amp;logoColor=white" alt="X"></a>
-  <a href="https://www.youtube.com/@jannikreinhard"><img src="https://img.shields.io/badge/YouTube-146CDD?style=flat-square&amp;logo=youtube&amp;logoColor=white" alt="YouTube"></a>
-  </p>
-  <p><sub>Driving AI with passion · Microsoft Foundry · Intune · Azure</sub></p>
-</div>
+</p>
+<p align="center">
+  <a href="https://jannikreinhard.com/">Website</a> ·
+  <a href="https://www.linkedin.com/in/jannik-r/">LinkedIn</a> ·
+  <a href="https://x.com/jannik_reinhard">X</a> ·
+  <a href="https://www.youtube.com/@jannikreinhard">YouTube</a>
+</p>
 <!-- jr-brand:end -->
+
+# Intune policy management
+
+**Type:** Tool or application · **Status:** Community project
+
+## Overview
+
+Generate and manage Microsoft Intune policy descriptions with Azure OpenAI-assisted automation.
+
+Many Intune policies have no or inadequate descriptions, and settings are often configured in multiple policies without visibility into overlaps. This tool solves both problems:
+
+1. **Fetch** - Loads all policies from the Intune tenant via Microsoft Graph API (Beta)
+2. **Analyze** - Sends the complete policy configuration (JSON) to Azure OpenAI
+3. **Generate** - Creates structured, human-readable descriptions per policy
+4. **Compare** - Shows a before/after view (original vs. generated description)
+5. **Write Back** - Pushes selected descriptions directly back to Intune
+6. **Conflict Analysis** - Detects settings configured in multiple policies and highlights conflicts
+
+<a id="prerequisites"></a>
+
+## Requirements
+
+### System
+
+- **Python 3.11 - 3.13** (Python 3.14 is currently not supported due to pydantic-core build issues)
+- **Node.js 18+** with npm
+- **Azure CLI** (`az`) installed and available in PATH
+- **Web browser** for interactive Microsoft login
+
+### Azure
+
+- **Azure tenant** with Microsoft Intune license
+- **Azure OpenAI Service** with a deployment (e.g. `gpt-5-mini`)
+  - Endpoint URL
+  - API Key
+  - Deployment name
+
+### Permissions
+
+The application uses the Microsoft Graph PowerShell app registration (Client ID: `14d82eec-204b-4c2f-b7e8-296a70dab67e`), which is pre-consented for Graph APIs. The following scopes are requested:
+
+| Scope | Purpose |
+|---|---|
+| `DeviceManagementConfiguration.Read.All` | Read device configurations, settings catalog, endpoint security |
+| `DeviceManagementConfiguration.ReadWrite.All` | Write descriptions back to Intune |
+| `DeviceManagementManagedDevices.Read.All` | Read device-related policies |
+| `DeviceManagementApps.Read.All` | Read app protection/configuration policies |
+| `DeviceManagementServiceConfig.Read.All` | Read enrollment configurations |
+| `Policy.Read.All` | Read conditional access policies |
+
+> The signed-in user must have these permissions in the tenant (or an admin must consent them).
+
+## Quickstart
+
+Get the source locally:
+
+```bash
+git clone https://github.com/JayRHa/intune-policy-management.git
+cd intune-policy-management
+```
+
+Entry points: [`start.sh`](start.sh).
 
 ## Table of Contents
 
@@ -30,17 +88,6 @@
 10. [Project Structure](#project-structure)
 11. [Troubleshooting](#troubleshooting)
 12. [Security Notes](#security-notes)
-
-## Overview
-
-Many Intune policies have no or inadequate descriptions, and settings are often configured in multiple policies without visibility into overlaps. This tool solves both problems:
-
-1. **Fetch** - Loads all policies from the Intune tenant via Microsoft Graph API (Beta)
-2. **Analyze** - Sends the complete policy configuration (JSON) to Azure OpenAI
-3. **Generate** - Creates structured, human-readable descriptions per policy
-4. **Compare** - Shows a before/after view (original vs. generated description)
-5. **Write Back** - Pushes selected descriptions directly back to Intune
-6. **Conflict Analysis** - Detects settings configured in multiple policies and highlights conflicts
 
 ## Architecture
 
@@ -104,45 +151,13 @@ Many Intune policies have no or inadequate descriptions, and settings are often 
 
 > **Note:** "Write" means the description value can be updated via the Graph API using PATCH. Not all policy types support this.
 
-## Prerequisites
-
-### System
-
-- **Python 3.11 - 3.13** (Python 3.14 is currently not supported due to pydantic-core build issues)
-- **Node.js 18+** with npm
-- **Azure CLI** (`az`) installed and available in PATH
-- **Web browser** for interactive Microsoft login
-
-### Azure
-
-- **Azure tenant** with Microsoft Intune license
-- **Azure OpenAI Service** with a deployment (e.g. `gpt-5-mini`)
-  - Endpoint URL
-  - API Key
-  - Deployment name
-
-### Permissions
-
-The application uses the Microsoft Graph PowerShell app registration (Client ID: `14d82eec-204b-4c2f-b7e8-296a70dab67e`), which is pre-consented for Graph APIs. The following scopes are requested:
-
-| Scope | Purpose |
-|---|---|
-| `DeviceManagementConfiguration.Read.All` | Read device configurations, settings catalog, endpoint security |
-| `DeviceManagementConfiguration.ReadWrite.All` | Write descriptions back to Intune |
-| `DeviceManagementManagedDevices.Read.All` | Read device-related policies |
-| `DeviceManagementApps.Read.All` | Read app protection/configuration policies |
-| `DeviceManagementServiceConfig.Read.All` | Read enrollment configurations |
-| `Policy.Read.All` | Read conditional access policies |
-
-> The signed-in user must have these permissions in the tenant (or an admin must consent them).
-
 ## Installation
 
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/JayRHa/IntunePolicyManagement.git
-cd IntunePolicyManagement
+git clone https://github.com/JayRHa/intune-policy-management.git
+cd intune-policy-management
 ```
 
 ### 2. Set up the backend
@@ -686,13 +701,7 @@ Open the browser console (F12 > Console) and check for JavaScript errors. Common
 This project is available under the terms in [LICENSE](LICENSE).
 
 <!-- jr-brand-footer:start -->
-
 ---
 
-<div align="center">
-  <p><sub>Built and maintained by <a href="https://jannikreinhard.com/">Jannik Reinhard</a> · Microsoft MVP for Security and AI Platform.</sub></p>
-  <p><a href="https://www.buymeacoffee.com/jannikreinf">Support the open-source work</a></p>
-  <p><strong>Stay healthy, Cheers Jannik</strong></p>
-</div>
-
+[Articles and guides](https://jannikreinhard.com/) · [Repository index](https://github.com/JayRHa/.github/blob/main/REPOSITORIES.md)
 <!-- jr-brand-footer:end -->
