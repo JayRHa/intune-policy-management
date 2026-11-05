@@ -1,6 +1,8 @@
 import asyncio
 import traceback
 
+import httpx
+
 from graph_client import graph_client
 from models import Policy
 
@@ -36,6 +38,7 @@ POLICY_ENDPOINTS = {
     "autopilot": {
         "endpoint": "/deviceManagement/windowsAutopilotDeploymentProfiles",
         "label": "Autopilot Deployment Profile",
+        "platform": "Windows",
     },
     "enrollment": {
         "endpoint": "/deviceManagement/deviceEnrollmentConfigurations",
@@ -44,32 +47,103 @@ POLICY_ENDPOINTS = {
     "remediationScript": {
         "endpoint": "/deviceManagement/deviceHealthScripts",
         "label": "Remediation Script",
+        "platform": "Windows",
     },
     "powershellScript": {
         "endpoint": "/deviceManagement/deviceManagementScripts",
         "label": "PowerShell Script",
+        "platform": "Windows",
     },
     "groupPolicy": {
         "endpoint": "/deviceManagement/groupPolicyConfigurations",
         "label": "Group Policy (ADMX)",
+        "platform": "Windows",
+    },
+    "macosShellScript": {
+        "endpoint": "/deviceManagement/deviceShellScripts",
+        "label": "macOS Shell Script",
+        "platform": "macOS",
+    },
+    "macosCustomAttribute": {
+        "endpoint": "/deviceManagement/deviceCustomAttributeShellScripts",
+        "label": "macOS Custom Attribute",
+        "platform": "macOS",
+    },
+    "complianceScript": {
+        "endpoint": "/deviceManagement/deviceComplianceScripts",
+        "label": "Custom Compliance Script",
+        "platform": "Windows",
+    },
+    "windowsFeatureUpdate": {
+        "endpoint": "/deviceManagement/windowsFeatureUpdateProfiles",
+        "label": "Windows Feature Update",
+        "platform": "Windows",
+    },
+    "windowsQualityUpdatePolicy": {
+        "endpoint": "/deviceManagement/windowsQualityUpdatePolicies",
+        "label": "Windows Quality Update Policy",
+        "platform": "Windows",
+    },
+    "windowsExpeditedUpdate": {
+        "endpoint": "/deviceManagement/windowsQualityUpdateProfiles",
+        "label": "Windows Expedited Quality Update",
+        "platform": "Windows",
+    },
+    "windowsDriverUpdate": {
+        "endpoint": "/deviceManagement/windowsDriverUpdateProfiles",
+        "label": "Windows Driver Update",
+        "platform": "Windows",
+    },
+    "assignmentFilter": {
+        "endpoint": "/deviceManagement/assignmentFilters",
+        "label": "Assignment Filter",
+    },
+    "deviceCleanupRule": {
+        "endpoint": "/deviceManagement/managedDeviceCleanupRules",
+        "label": "Device Clean-up Rule",
+    },
+    "appleEnrollmentProfile": {
+        "endpoint": "/deviceManagement/appleUserInitiatedEnrollmentProfiles",
+        "label": "Apple Enrollment Type Profile",
+    },
+    "policySet": {
+        "endpoint": "/deviceAppManagement/policySets",
+        "label": "Policy Set",
     },
 }
 
 
-def _extract_platform(item: dict) -> str | None:
-    odata_type = item.get("@odata.type", "")
-    if "windows" in odata_type.lower() or "win" in odata_type.lower():
+# Properties that state a platform explicitly. Checked before the @odata.type
+# heuristic because types such as appleUserInitiatedEnrollmentProfile carry
+# "apple" in their @odata.type for both iOS and macOS profiles.
+_PLATFORM_FIELDS = ("platform", "platforms", "deviceCleanupRulePlatformType")
+
+
+def _platform_from_text(text: str) -> str | None:
+    t = text.lower()
+    if "windows" in t or "win" in t:
         return "Windows"
-    if "ios" in odata_type.lower() or "apple" in odata_type.lower():
+    if "ios" in t or "apple" in t:
         return "iOS"
-    if "macos" in odata_type.lower() or "macOS" in odata_type.lower():
+    if "macos" in t:
         return "macOS"
-    if "android" in odata_type.lower():
+    if "android" in t:
         return "Android"
-    platforms = item.get("platforms", "")
-    if platforms and platforms != "none":
-        return platforms
     return None
+
+
+def _extract_platform(item: dict, default: str | None = None) -> str | None:
+    """Best-effort platform label. `default` is the per-type platform from
+    POLICY_ENDPOINTS, used for resources whose JSON carries no platform hint
+    (scripts, update profiles, ADMX)."""
+    for field in _PLATFORM_FIELDS:
+        value = item.get(field)
+        if value and value != "none":
+            return _platform_from_text(str(value)) or str(value)
+    platform = _platform_from_text(item.get("@odata.type", ""))
+    if platform:
+        return platform
+    return default
 
 
 async def _fetch_policy_type(policy_type: str, config: dict) -> list[Policy]:
@@ -84,10 +158,22 @@ async def _fetch_policy_type(policy_type: str, config: dict) -> list[Policy]:
                     display_name=name,
                     description=item.get("description"),
                     policy_type=policy_type,
-                    platform=_extract_platform(item),
+                    platform=_extract_platform(item, config.get("platform")),
                 )
             )
         return policies
+    except httpx.HTTPStatusError as e:
+        status = e.response.status_code
+        detail = ""
+        try:
+            err = e.response.json().get("error", {})
+            detail = f" [{err.get('code', '')}] {str(err.get('message', ''))[:200]}"
+        except Exception:
+            pass
+        print(f"Warning: Failed to fetch {config['label']}: HTTP {status} for {config['endpoint']}{detail}")
+        if status == 403:
+            print("  The signed-in account lacks a Graph scope or Intune RBAC permission for this endpoint. See README > Permissions.")
+        return []
     except Exception as e:
         print(f"Warning: Failed to fetch {config['label']}: {e}")
         traceback.print_exc()

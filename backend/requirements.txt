@@ -5,3 +5,4 @@ openai==1.58.1
 pydantic==2.10.4
 pydantic-settings==2.7.1
 python-dotenv==1.2.2
+msal==1.39.0

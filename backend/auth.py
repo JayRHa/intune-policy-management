@@ -10,6 +10,10 @@ SCOPES = [
     "DeviceManagementApps.Read.All",
     "DeviceManagementServiceConfig.Read.All",
     "DeviceManagementConfiguration.ReadWrite.All",
+    # Required for /deviceManagement/deviceManagementScripts (PowerShell scripts)
+    # and /deviceManagement/deviceHealthScripts (Remediation scripts).
+    # DeviceManagementConfiguration.* does not cover these endpoints.
+    "DeviceManagementScripts.Read.All",
     "Policy.Read.All",
 ]
 
