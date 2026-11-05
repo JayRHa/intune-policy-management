@@ -59,6 +59,7 @@ The application uses the Microsoft Graph PowerShell app registration (Client ID:
 | `DeviceManagementManagedDevices.Read.All` | Read device-related policies |
 | `DeviceManagementApps.Read.All` | Read app protection/configuration policies |
 | `DeviceManagementServiceConfig.Read.All` | Read enrollment configurations |
+| `DeviceManagementScripts.Read.All` | Read PowerShell scripts and Remediation scripts (not covered by `DeviceManagementConfiguration.*`) |
 | `Policy.Read.All` | Read conditional access policies |
 
 > The signed-in user must have these permissions in the tenant (or an admin must consent them).
@@ -96,7 +97,7 @@ Entry points: [`start.sh`](start.sh).
 |                  |  HTTP   |                  |  HTTPS  |                     |
 |  React Frontend  | ------> |  FastAPI Backend  | ------> |  Microsoft Graph    |
 |  (Vite, Port     |         |  (uvicorn, Port  |         |  API (Beta)         |
-|   5173)          |         |   8099)          |         |                     |
+|   5173)          |         |   8000)          |         |                     |
 |                  |         |                  |         +---------------------+
 +------------------+         |                  |
                              |                  |  HTTPS  +---------------------+
@@ -172,20 +173,20 @@ source venv/bin/activate   # macOS/Linux
 
 # Install dependencies
 pip install -r requirements.txt
-pip install msal
 ```
 
 **requirements.txt includes:**
 
 | Package | Version | Purpose |
 |---|---|---|
-| fastapi | 0.115.6 | Web framework |
+| fastapi | 0.136.1 | Web framework |
 | uvicorn | 0.34.0 | ASGI server |
 | httpx | 0.28.1 | Async HTTP client for Graph API |
 | openai | 1.58.1 | Azure OpenAI SDK |
 | pydantic | 2.10.4 | Data validation |
 | pydantic-settings | 2.7.1 | Environment-based settings |
-| python-dotenv | 1.0.1 | Load .env files |
+| python-dotenv | 1.2.2 | Load .env files |
+| msal | 1.39.0 | Microsoft Graph interactive sign-in |
 
 ### 3. Set up the frontend
 
@@ -244,7 +245,7 @@ LLM settings (system prompt, template, custom instructions) can be adjusted via 
 ```bash
 cd backend
 source venv/bin/activate
-uvicorn main:app --reload --port 8099
+uvicorn main:app --reload --port 8000
 ```
 
 **Terminal 2 - Frontend:**
@@ -257,20 +258,20 @@ npm run dev
 ### Option B: Start script
 
 ```bash
-# Note: adjust port in start.sh if needed (default: 8000)
+# Backend defaults to port 8000. To override: BACKEND_PORT=8099 ./start.sh
 chmod +x start.sh
 ./start.sh
 ```
 
-> **Note:** Make sure port 8099 is not in use. For port conflicts (e.g. with OrbStack on port 8000), change the port in the `uvicorn` command and in `frontend/vite.config.ts`.
+> **Note:** Make sure port 8000 is not in use. For port conflicts (e.g. with OrbStack on port 8000), set `BACKEND_PORT` for both servers. With the start script: `BACKEND_PORT=8099 ./start.sh`. Manually: `uvicorn main:app --reload --port 8099` and `BACKEND_PORT=8099 npm run dev`. The Vite proxy in `frontend/vite.config.ts` reads `BACKEND_PORT` and defaults to 8000.
 
 ### Ports
 
 | Service | URL |
 |---|---|
 | Frontend | http://localhost:5173 |
-| Backend API | http://localhost:8099 |
-| API Docs (Swagger) | http://localhost:8099/docs |
+| Backend API | http://localhost:8000 |
+| API Docs (Swagger) | http://localhost:8000/docs |
 
 ## Usage
 
@@ -388,7 +389,7 @@ Click **"Start Analysis"** to begin. The analyzer fetches detailed settings from
 
 ## API Reference
 
-All endpoints are available at `http://localhost:8099/api/`. Interactive documentation at `http://localhost:8099/docs`.
+All endpoints are available at `http://localhost:8000/api/`. Interactive documentation at `http://localhost:8000/docs`.
 
 ### Authentication
 
@@ -653,20 +654,21 @@ The signed-in user does not have the required Intune permissions. Make sure the 
 
 ### Port conflicts
 
-If port 8099 or 5173 is already in use:
+If port 8000 or 5173 is already in use:
 
 **Change backend port:**
+
+The backend port is read from the `BACKEND_PORT` environment variable by both `start.sh` and the Vite proxy in `frontend/vite.config.ts` (default 8000), so set it once for both servers:
+
 ```bash
-uvicorn main:app --reload --port NEW_PORT
+BACKEND_PORT=NEW_PORT ./start.sh
 ```
 
-Also update the proxy in `frontend/vite.config.ts`:
-```typescript
-proxy: {
-  '/api': {
-    target: 'http://localhost:NEW_PORT',
-  },
-},
+Or when starting the servers manually:
+
+```bash
+uvicorn main:app --reload --port NEW_PORT
+BACKEND_PORT=NEW_PORT npm run dev
 ```
 
 ### "max_tokens is not supported"

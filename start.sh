@@ -1,6 +1,12 @@
 #!/bin/bash
 # Start Intune Policy Description Generator
 
+# Backend port. Override with: BACKEND_PORT=8099 ./start.sh
+# frontend/vite.config.ts reads the same variable for its /api proxy target,
+# so both servers always agree on the port.
+BACKEND_PORT="${BACKEND_PORT:-8000}"
+export BACKEND_PORT
+
 echo "Starting Intune Policy Description Generator..."
 echo ""
 
@@ -15,7 +21,7 @@ echo "Azure CLI: Authenticated"
 echo "Starting backend..."
 cd backend
 source venv/bin/activate
-uvicorn main:app --reload --port 8000 &
+uvicorn main:app --reload --port "$BACKEND_PORT" &
 BACKEND_PID=$!
 cd ..
 
@@ -27,7 +33,7 @@ FRONTEND_PID=$!
 cd ..
 
 echo ""
-echo "Backend running at http://localhost:8000"
+echo "Backend running at http://localhost:$BACKEND_PORT"
 echo "Frontend running at http://localhost:5173"
 echo ""
 echo "Press Ctrl+C to stop both servers"
