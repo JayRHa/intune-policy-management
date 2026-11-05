@@ -59,7 +59,7 @@ The application uses the Microsoft Graph PowerShell app registration (Client ID:
 | `DeviceManagementManagedDevices.Read.All` | Read device-related policies |
 | `DeviceManagementApps.Read.All` | Read app protection/configuration policies |
 | `DeviceManagementServiceConfig.Read.All` | Read enrollment configurations |
-| `DeviceManagementScripts.Read.All` | Read PowerShell scripts and Remediation scripts (not covered by `DeviceManagementConfiguration.*`) |
+| `DeviceManagementScripts.Read.All` | Read PowerShell scripts, Remediation scripts, macOS shell scripts, macOS custom attributes and custom compliance scripts (not covered by `DeviceManagementConfiguration.*`) |
 | `Policy.Read.All` | Read conditional access policies |
 
 > The signed-in user must have these permissions in the tenant (or an admin must consent them).
@@ -149,6 +149,17 @@ Entry points: [`start.sh`](start.sh).
 | Remediation Script | `/deviceManagement/deviceHealthScripts` | Yes | No |
 | PowerShell Script | `/deviceManagement/deviceManagementScripts` | Yes | No |
 | Group Policy (ADMX) | `/deviceManagement/groupPolicyConfigurations` | Yes (incl. definition values) | Yes |
+| macOS Shell Script | `/deviceManagement/deviceShellScripts` | Yes | No |
+| macOS Custom Attribute | `/deviceManagement/deviceCustomAttributeShellScripts` | Yes | No |
+| Custom Compliance Script | `/deviceManagement/deviceComplianceScripts` | Yes | No |
+| Windows Feature Update | `/deviceManagement/windowsFeatureUpdateProfiles` | Yes | No |
+| Windows Quality Update Policy | `/deviceManagement/windowsQualityUpdatePolicies` | Yes | No |
+| Windows Expedited Quality Update | `/deviceManagement/windowsQualityUpdateProfiles` | Yes | No |
+| Windows Driver Update | `/deviceManagement/windowsDriverUpdateProfiles` | Yes | No |
+| Assignment Filter | `/deviceManagement/assignmentFilters` | Yes | No |
+| Device Clean-up Rule | `/deviceManagement/managedDeviceCleanupRules` | Yes | No |
+| Apple Enrollment Type Profile | `/deviceManagement/appleUserInitiatedEnrollmentProfiles` | Yes | No |
+| Policy Set | `/deviceAppManagement/policySets` | Yes | No |
 
 > **Note:** "Write" means the description value can be updated via the Graph API using PATCH. Not all policy types support this.
 
@@ -299,7 +310,7 @@ After successful login, you will see the main view. Click **"Load Policies"** in
 
 ![Main View - Empty](assets/screenshot_02_main_empty.png)
 
-Policies are loaded from all 12 policy types in parallel. A spinner indicates the loading process.
+Policies are loaded from all 23 policy types in parallel. A spinner indicates the loading process.
 
 ![Policy List](assets/screenshot_03_policy_list.png)
 
@@ -603,7 +614,7 @@ IntunePolicyManagement/
 - `patch()` for description updates, handles 204 No Content
 
 #### `backend/policy_fetcher.py`
-- 12 policy types defined in `POLICY_ENDPOINTS`
+- 23 policy types defined in `POLICY_ENDPOINTS`
 - `fetch_all_policies()` loads all types in parallel via `asyncio.gather()`
 - `fetch_policy_details()` loads type-specific additional data:
   - Settings Catalog: `/{id}/settings`
