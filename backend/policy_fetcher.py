@@ -1,6 +1,8 @@
 import asyncio
 import traceback
 
+import httpx
+
 from graph_client import graph_client
 from models import Policy
 
@@ -88,6 +90,18 @@ async def _fetch_policy_type(policy_type: str, config: dict) -> list[Policy]:
                 )
             )
         return policies
+    except httpx.HTTPStatusError as e:
+        status = e.response.status_code
+        detail = ""
+        try:
+            err = e.response.json().get("error", {})
+            detail = f" [{err.get('code', '')}] {str(err.get('message', ''))[:200]}"
+        except Exception:
+            pass
+        print(f"Warning: Failed to fetch {config['label']}: HTTP {status} for {config['endpoint']}{detail}")
+        if status == 403:
+            print("  The signed-in account lacks a Graph scope or Intune RBAC permission for this endpoint. See README > Permissions.")
+        return []
     except Exception as e:
         print(f"Warning: Failed to fetch {config['label']}: {e}")
         traceback.print_exc()

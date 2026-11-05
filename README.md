@@ -59,6 +59,7 @@ The application uses the Microsoft Graph PowerShell app registration (Client ID:
 | `DeviceManagementManagedDevices.Read.All` | Read device-related policies |
 | `DeviceManagementApps.Read.All` | Read app protection/configuration policies |
 | `DeviceManagementServiceConfig.Read.All` | Read enrollment configurations |
+| `DeviceManagementScripts.Read.All` | Read PowerShell scripts and Remediation scripts (not covered by `DeviceManagementConfiguration.*`) |
 | `Policy.Read.All` | Read conditional access policies |
 
 > The signed-in user must have these permissions in the tenant (or an admin must consent them).
